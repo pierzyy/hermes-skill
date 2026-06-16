@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:{bg};color:{text};font-family:'Noto Sans CJK SC','PingFang SC','Microsoft YaHei',sans-serif;font-size:14px;line-height:1.6;max-width:750px;margin:0 auto}
+.header{background:{header_bg};padding:30px 24px 20px;text-align:center;border-bottom:3px solid {header_border}}
+.header h1{font-size:26px;font-weight:800;color:{title_color};letter-spacing:-0.02em;margin:0 0 4px}
+.header .meta{font-size:12px;color:{muted}}
+.header .total{font-size:34px;font-weight:900;color:{total_color};margin-top:10px}
+.header .total span{font-size:15px;color:{muted};font-weight:400}
+.section{padding:20px 18px;border-bottom:1px solid {divider}}
+.section-title{font-size:16px;font-weight:700;color:{accent};margin-bottom:14px}
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpi-card{background:{card_bg};border:1px solid {card_border};border-radius:8px;padding:12px 14px}
+.kpi-card .label{font-size:11px;color:{muted};letter-spacing:0.05em}
+.kpi-card .value{font-size:20px;font-weight:700;margin:3px 0}
+.kpi-card .change{font-size:11px}
+.up{color:{green}}.down{color:{red}}.warn{color:{yellow}}
+.macro-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.macro-item{display:flex;justify-content:space-between;padding:7px 10px;background:{card_bg};border-radius:6px;font-size:12px}
+.macro-item .key{color:{muted}}
+.macro-item .val{font-weight:600}
+.summary-box{margin-top:10px;padding:10px 14px;background:{card_bg};border-radius:8px;font-size:13px}
+.industry-row{display:flex;align-items:center;padding:5px 0;gap:8px}
+.industry-row .name{width:72px;font-size:12px;text-align:right;flex-shrink:0}
+.industry-row .bar-bg{flex:1;height:18px;background:{bar_bg};border-radius:4px;overflow:hidden}
+.industry-row .bar-fill{height:100%;border-radius:4px}
+.industry-row .score{width:32px;font-size:12px;text-align:center;font-weight:600;flex-shrink:0}
+.industry-row .tag{width:44px;font-size:10px;text-align:center;flex-shrink:0}
+.tag-green{color:{green}}.tag-yellow{color:{yellow}}.tag-red{color:{red}}
+.op-card{background:{card_bg};border:1px solid {card_border};border-radius:8px;padding:12px 14px;margin-bottom:6px;border-left:3px solid {accent}}
+.op-card.buy{border-left-color:{green}}
+.op-card.sell{border-left-color:{red}}
+.op-card .op-title{font-size:14px;font-weight:700;margin-bottom:2px}
+.op-card .op-detail{font-size:11px;color:{muted};line-height:1.7}
+.op-card .fund-line{font-size:11px;color:{muted};padding-left:4px;border-left:2px solid {muted}40;margin:3px 0 0 6px;line-height:1.7}
+.alert{background:{alert_bg};border:1px solid {alert_border};border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:12px}
+.alert .alert-title{color:{red};font-weight:700;margin-bottom:2px}
+.planb{margin-top:10px;padding:10px 14px;background:{planb_bg};border-radius:8px;font-size:11px;color:{red}}
+.planb strong{display:block;margin-bottom:2px}
+.stats-bar{margin-top:8px;font-size:11px;color:{muted};text-align:center}
+.footer{text-align:center;padding:16px;font-size:10px;color:{muted}}
+</style>
+</head>
+<body>
+<!-- Sections: .header / .section[📈资产配置] / .section[🌏宏观] / .section[🎯行业] / .section[💡操作] / .footer -->
+<!-- Fund-level operations: .op-card.sell > .op-detail + .fund-line (one <br> per fund) -->
+<!-- Format: CODE NAME — 方向 ¥AMOUNT · REASON -->
+</body>
+</html>
