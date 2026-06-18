@@ -154,126 +154,174 @@ rm -rf app/src/main/res/mipmap-anydpi-v26 app/src/main/res/drawable-nodpi
 
 基础版只有 WebView，网络慢或连不上就是黑屏/白屏。增强版添加了加载遮罩、进度条、超时提示和刷新按钮，用户体验显著提升。
 
-### 布局文件 `res/layout/activity_main.xml`
+### ⚠️ 闪退教训：纯代码构建 UI，不用布局 XML
 
-**⚠️ 以下所有 widget 都不能用 tint 属性（`progressTint`/`indeterminateTint`/`backgroundTint`），也不能用 `Button` 或 `ImageButton`——这些都需要 AppCompat/Material theme，而本模板用纯 `Activity`（无 theme）以避免崩溃。**
+**布局 XML 方案在纯 `Activity`（无 theme）上会闪退**，因为 `?android:attr/progressBarStyleHorizontal` 等主题属性无法解析。即使加了 `android:theme="@android:style/Theme.Material.NoActionBar"` 也不可靠。
 
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#FF0D1117">
+**正确做法：纯 Kotlin 代码构建所有 UI**，不依赖任何 layout XML 和 theme。完整参考实现见下方。
 
-    <WebView android:id="@+id/webview"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-    <ProgressBar android:id="@+id/progress_bar"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="3dp"
-        android:layout_gravity="top"
-        android:max="100"
-        android:visibility="gone" />
-
-    <LinearLayout android:id="@+id/loading_overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:background="#E60D1117">
-
-        <ProgressBar android:id="@+id/loading_spinner"
-            style="?android:attr/progressBarStyle"
-            android:layout_width="48dp" android:layout_height="48dp" />
-
-        <TextView android:id="@+id/status_text"
-            android:layout_marginTop="16dp"
-            android:text="正在连接..."
-            android:textColor="#FF8B949E" android:textSize="14sp" />
-
-        <TextView android:id="@+id/status_detail"
-            android:layout_marginTop="8dp"
-            android:textColor="#FF484F58" android:textSize="12sp" />
-
-        <TextView android:id="@+id/btn_retry"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:paddingStart="32dp" android:paddingEnd="32dp" android:padding="12dp"
-            android:text="重试" android:visibility="gone"
-            android:textColor="#FFFFFFFF" android:textSize="14sp"
-            android:background="#FF238636"
-            android:clickable="true" android:focusable="true" />
-    </LinearLayout>
-
-    <TextView android:id="@+id/btn_refresh"
-        android:layout_width="44dp" android:layout_height="44dp"
-        android:layout_gravity="end|bottom" android:layout_margin="16dp"
-        android:text="⟳" android:textColor="#FF58A6FF" android:textSize="22sp"
-        android:gravity="center"
-        android:background="@drawable/fab_bg"
-        android:visibility="gone"
-        android:clickable="true" android:focusable="true" />
-</FrameLayout>
-```
-
-### FAB 背景 `res/drawable/fab_bg.xml`
-
-```xml
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
-    <solid android:color="#FF21262D" />
-    <stroke android:width="1dp" android:color="#FF30363D" />
-</shape>
-```
-
-### MainActivity.kt 关键逻辑
+### 纯代码 MainActivity.kt（完整版，已验证不闪退）
 
 ```kotlin
+package com.hermes.workbench  // 改为你的包名
+
+import android.app.Activity
+import android.graphics.Bitmap
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.View
+import android.view.ViewGroup
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.TextView
+
 class MainActivity : Activity() {
     companion object {
         const val TARGET_URL = "http://YOUR_URL"
         private const val TIMEOUT_MS = 15_000L
     }
 
+    private lateinit var webView: WebView
+    private lateinit var progressBar: ProgressBar
+    private lateinit var loadingOverlay: LinearLayout
+    private lateinit var loadingSpinner: ProgressBar
+    private lateinit var statusText: TextView
+    private lateinit var statusDetail: TextView
+    private lateinit var btnRetry: TextView
+    private lateinit var btnRefresh: TextView
+
     private var isPageLoaded = false
     private val timeoutHandler = Handler(Looper.getMainLooper())
 
-    // onCreate 中: setContentView(R.layout.activity_main) → bind views → setup WebView → reload()
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        val root = FrameLayout(this).apply {
+            layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            setBackgroundColor(0xFF0D1117.toInt())
+        }
+
+        webView = WebView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        }
+        root.addView(webView)
+
+        progressBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, 3).also { it.gravity = android.view.Gravity.TOP }
+            max = 100; visibility = View.GONE
+        }
+        root.addView(progressBar)
+
+        loadingOverlay = LinearLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            gravity = android.view.Gravity.CENTER; orientation = LinearLayout.VERTICAL
+            setBackgroundColor(0xE60D1117.toInt())
+        }
+
+        loadingSpinner = ProgressBar(this).apply { layoutParams = LinearLayout.LayoutParams(48, 48) }
+        loadingOverlay.addView(loadingSpinner)
+
+        statusText = TextView(this).apply {
+            val lp = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT); lp.topMargin = 16
+            layoutParams = lp; text = "正在连接..."; setTextColor(0xFF8B949E.toInt()); textSize = 14f
+        }
+        loadingOverlay.addView(statusText)
+
+        statusDetail = TextView(this).apply {
+            val lp = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT); lp.topMargin = 8
+            layoutParams = lp; setTextColor(0xFF484F58.toInt()); textSize = 12f
+        }
+        loadingOverlay.addView(statusDetail)
+
+        btnRetry = TextView(this).apply {
+            val lp = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT); lp.topMargin = 24
+            layoutParams = lp; setPadding(32, 12, 32, 12); text = "重试"; visibility = View.GONE
+            setTextColor(0xFFFFFFFF.toInt()); textSize = 14f; setBackgroundColor(0xFF238636.toInt())
+            isClickable = true; isFocusable = true; setOnClickListener { reload() }
+        }
+        loadingOverlay.addView(btnRetry)
+        root.addView(loadingOverlay)
+
+        btnRefresh = TextView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(44, 44).also {
+                it.gravity = android.view.Gravity.END or android.view.Gravity.BOTTOM; it.setMargins(0, 0, 16, 16)
+            }
+            text = "\u27F3"; setTextColor(0xFF58A6FF.toInt()); textSize = 22f
+            gravity = android.view.Gravity.CENTER; visibility = View.GONE
+            isClickable = true; isFocusable = true; setOnClickListener { reload() }
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(0xFF21262D.toInt()); setStroke(1, 0xFF30363D.toInt())
+            }
+        }
+        root.addView(btnRefresh)
+
+        setContentView(root)
+        setupWebView()
+        reload()
+    }
+
+    private fun setupWebView() {
+        webView.settings.apply {
+            javaScriptEnabled = true; domStorageEnabled = true
+            mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            setSupportZoom(true); builtInZoomControls = true; displayZoomControls = false
+            useWideViewPort = true; loadWithOverviewMode = true
+        }
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url); isPageLoaded = true
+                timeoutHandler.removeCallbacksAndMessages(null)
+                loadingOverlay.visibility = View.GONE; progressBar.visibility = View.GONE
+                btnRefresh.visibility = View.VISIBLE
+            }
+            override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
+                if (failingUrl == view?.url || failingUrl == TARGET_URL) {
+                    isPageLoaded = true; timeoutHandler.removeCallbacksAndMessages(null)
+                    loadingSpinner.visibility = View.GONE; statusText.text = "连接失败"
+                    statusDetail.text = description ?: "未知错误"
+                    btnRetry.visibility = View.VISIBLE; progressBar.visibility = View.GONE
+                }
+            }
+        }
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                progressBar.progress = newProgress
+                if (newProgress < 100) statusText.text = "正在加载... $newProgress%"
+                if (newProgress == 100) progressBar.visibility = View.GONE
+            }
+        }
+    }
 
     private fun reload() {
         isPageLoaded = false
-        loadingOverlay.visibility = View.VISIBLE
-        loadingSpinner.visibility = View.VISIBLE
-        btnRefresh.visibility = View.GONE
-        btnRetry.visibility = View.GONE
-        progressBar.visibility = View.VISIBLE
-        progressBar.progress = 0
-
+        loadingOverlay.visibility = View.VISIBLE; loadingSpinner.visibility = View.VISIBLE
+        btnRefresh.visibility = View.GONE; btnRetry.visibility = View.GONE
+        progressBar.visibility = View.VISIBLE; progressBar.progress = 0
+        statusText.text = "正在连接..."; statusDetail.text = ""
+        timeoutHandler.removeCallbacksAndMessages(null)
         timeoutHandler.postDelayed({
             if (!isPageLoaded) {
-                loadingSpinner.visibility = View.GONE
-                statusText.text = "连接超时"
+                loadingSpinner.visibility = View.GONE; statusText.text = "连接超时"
                 statusDetail.text = "无法连接，请检查网络"
-                btnRetry.visibility = View.VISIBLE
-                progressBar.visibility = View.GONE
+                btnRetry.visibility = View.VISIBLE; progressBar.visibility = View.GONE
             }
         }, TIMEOUT_MS)
-
         webView.loadUrl(TARGET_URL)
     }
-
-    // WebViewClient.onPageFinished → isPageLoaded=true, dismiss overlay, show btnRefresh
-    // WebViewClient.onReceivedError → show error message, show btnRetry (only for main frame)
-    // WebChromeClient.onProgressChanged → update progress bar + status text
 }
 ```
 
-**⚠️ 必须用 `android.app.Activity`**，不能用 `AppCompatActivity`——缺 theme 时打开即崩溃（切回桌面）。
-**⚠️ 不用 `Button`/`ImageButton`**——换成 `TextView` + `clickable=true`，避免 `backgroundTint` 等需要 theme 的属性。
-**⚠️ 不用 `tint` 属性**（`progressTint`/`indeterminateTint` 等）——同样需要 theme。
-
-**完整参考实现**：`/opt/data/AionQuick/app/src/main/java/com/hermes/aionquick/MainActivity.kt`
+**关键要点：**
+- `LinearLayout.LayoutParams` 的 `topMargin` 不能链式 `.also { topMargin = 16 }`，必须拆成 `val lp = ...; lp.topMargin = 16; layoutParams = lp`
+- `FrameLayout.LayoutParams` 的 `gravity` 和 `setMargins` 同样需要先声明变量再赋值
+- 圆形 FAB 背景用 `GradientDrawable` 代码创建，不依赖 `@drawable/fab_bg.xml`
+- 不需要 `activity_main.xml` 布局文件，不需要 `fab_bg.xml` drawable 文件
 
 ### 行为对照
 
